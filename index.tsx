@@ -20,7 +20,17 @@ interface Asset {
 }
 
 const CATEGORIES = ["Electronics", "Furniture", "Machinery", "Vehicles", "Software", "Other"];
-const LOCATIONS = ["Headquarters", "Warehouse A", "Remote", "New York Office", "London Office"];
+const LOCATIONS = [
+  "Camp Ware",
+  "Camp Tubman",
+  "14 Military ART",
+  "14 Military Lab",
+  "LCG",
+  "Camp Zwedru",
+  "Camp Voinjama",
+  "ACOS MOD",
+  "Camp Buchanan"
+];
 const STATUSES = ["Active", "Maintenance", "Retired"];
 
 // --- Helper Functions ---
@@ -42,6 +52,9 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
     </div>
     <div className={`nav-item ${currentView === 'inventory' ? 'active' : ''}`} onClick={() => setView('inventory')}>
       Inventory List
+    </div>
+    <div className={`nav-item ${currentView === 'reports' ? 'active' : ''}`} onClick={() => setView('reports')}>
+      Reports
     </div>
     <div className={`nav-item ${currentView === 'add' ? 'active' : ''}`} onClick={() => setView('add')}>
       Add Asset
@@ -107,7 +120,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
     category: 'Electronics',
     purchaseDate: new Date().toISOString().split('T')[0],
     cost: 0,
-    location: 'Headquarters',
+    location: 'Camp Ware',
     status: 'Active',
     serialNumber: '',
     description: '',
@@ -161,7 +174,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
         ...extracted,
         // Ensure defaults if AI returns null/undefined
         category: extracted.category || prev.category || 'Electronics',
-        location: extracted.location || prev.location || 'Headquarters',
+        location: extracted.location || prev.location || 'Camp Ware',
         status: extracted.status || prev.status || 'Active',
       }));
 
@@ -193,7 +206,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
             ✨ AI Smart Entry
           </h3>
           <p style={{ fontSize: '0.9rem', color: '#475569' }}>
-            Describe the asset naturally (e.g., "Bought 3 Herman Miller chairs for the London Office today for $1200 each").
+            Describe the asset naturally (e.g., "Bought 3 Herman Miller chairs for Camp Tubman today for $1200 each").
           </p>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input 
@@ -351,6 +364,133 @@ const AssetList = ({ assets, onDelete, onEdit }: { assets: Asset[], onDelete: (i
   );
 };
 
+const Reports = ({ assets }: { assets: Asset[] }) => {
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+
+  const locationStats = useMemo(() => {
+    const stats: Record<string, { count: number, value: number }> = {};
+    LOCATIONS.forEach(loc => {
+      const locAssets = assets.filter(a => a.location === loc);
+      stats[loc] = {
+        count: locAssets.length,
+        value: locAssets.reduce((sum, a) => sum + (a.status !== 'Retired' ? a.cost : 0), 0)
+      };
+    });
+    return stats;
+  }, [assets]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShare = async () => {
+    const text = `Asset Report for ${selectedLocation}\nTotal Assets: ${locationStats[selectedLocation!].count}\nTotal Value: ${formatCurrency(locationStats[selectedLocation!].value)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Asset Report - ${selectedLocation}`,
+          text: text,
+        });
+      } catch (err) {
+        console.log("Share failed", err);
+      }
+    } else {
+      alert("Report summary copied to clipboard:\n" + text);
+      await navigator.clipboard.writeText(text);
+    }
+  };
+
+  if (selectedLocation) {
+    const reportAssets = assets.filter(a => a.location === selectedLocation);
+    const stats = locationStats[selectedLocation];
+
+    return (
+      <div className="report-view">
+        <div className="no-print" style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
+          <button className="btn btn-secondary" onClick={() => setSelectedLocation(null)}>← Back to Overview</button>
+          <div style={{ flex: 1 }}></div>
+          <button className="btn btn-secondary" onClick={handleShare}>Share Report</button>
+          <button className="btn btn-primary" onClick={handlePrint}>🖨️ Print Report</button>
+        </div>
+
+        <div className="card" style={{ boxShadow: 'none' }}>
+           <div style={{ borderBottom: '2px solid var(--text-main)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+              <h1 style={{ margin: 0, fontSize: '2rem' }}>Asset Inventory Report</h1>
+              <h2 style={{ margin: '0.5rem 0 0 0', color: 'var(--text-sub)' }}>Location: {selectedLocation}</h2>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>Generated on: {new Date().toLocaleDateString()}</div>
+           </div>
+
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+             <div>
+               <div style={{ fontSize: '0.9rem', color: 'var(--text-sub)' }}>Total Assets</div>
+               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{stats.count}</div>
+             </div>
+             <div>
+               <div style={{ fontSize: '0.9rem', color: 'var(--text-sub)' }}>Total Value</div>
+               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{formatCurrency(stats.value)}</div>
+             </div>
+           </div>
+
+           <table className="data-table">
+             <thead>
+               <tr>
+                 <th>Asset Name</th>
+                 <th>Category</th>
+                 <th>Serial #</th>
+                 <th>Status</th>
+                 <th style={{ textAlign: 'right' }}>Cost</th>
+               </tr>
+             </thead>
+             <tbody>
+               {reportAssets.map(asset => (
+                 <tr key={asset.id}>
+                   <td>{asset.name}</td>
+                   <td>{asset.category}</td>
+                   <td>{asset.serialNumber || '-'}</td>
+                   <td>{asset.status}</td>
+                   <td style={{ textAlign: 'right' }}>{formatCurrency(asset.cost)}</td>
+                 </tr>
+               ))}
+               {reportAssets.length === 0 && <tr><td colSpan={5} style={{textAlign:'center', padding:'2rem'}}>No assets found for this location.</td></tr>}
+             </tbody>
+           </table>
+
+           <div style={{ marginTop: '4rem', display: 'flex', justifyContent: 'space-between', pageBreakInside: 'avoid' }}>
+             <div style={{ borderTop: '1px solid #000', width: '40%', padding: '0.5rem' }}>
+               Signed (Officer in Charge)
+             </div>
+             <div style={{ borderTop: '1px solid #000', width: '40%', padding: '0.5rem' }}>
+               Date
+             </div>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 style={{ marginBottom: '1.5rem' }}>Reports Overview</h2>
+      <p style={{ color: 'var(--text-sub)', marginBottom: '1.5rem' }}>Select a location to generate and print a detailed asset report.</p>
+      
+      <div className="stats-grid">
+        {LOCATIONS.map(loc => {
+           const stats = locationStats[loc];
+           return (
+             <div key={loc} className="card nav-item" style={{ height: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onClick={() => setSelectedLocation(loc)}>
+               <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{loc}</div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto' }}>
+                 <span style={{ color: 'var(--text-sub)' }}>{stats.count} Assets</span>
+                 <span style={{ fontWeight: '600' }}>{formatCurrency(stats.value)}</span>
+               </div>
+             </div>
+           );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 const App = () => {
@@ -358,9 +498,9 @@ const App = () => {
   const [assets, setAssets] = useState<Asset[]>(() => {
     const saved = localStorage.getItem("assets");
     return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'MacBook Pro M2', category: 'Electronics', purchaseDate: '2023-05-15', cost: 2499, location: 'Headquarters', status: 'Active', serialNumber: 'FVFX234', description: 'Primary dev machine' },
-      { id: '2', name: 'Herman Miller Aeron', category: 'Furniture', purchaseDate: '2023-01-10', cost: 1200, location: 'New York Office', status: 'Active', serialNumber: 'HM-992', description: 'Ergonomic chair' },
-      { id: '3', name: 'Office Printer', category: 'Electronics', purchaseDate: '2022-11-20', cost: 450, location: 'Warehouse A', status: 'Maintenance', serialNumber: 'PRT-443', description: 'Needs toner' },
+      { id: '1', name: 'MacBook Pro M2', category: 'Electronics', purchaseDate: '2023-05-15', cost: 2499, location: 'Camp Ware', status: 'Active', serialNumber: 'FVFX234', description: 'Primary dev machine' },
+      { id: '2', name: 'Herman Miller Aeron', category: 'Furniture', purchaseDate: '2023-01-10', cost: 1200, location: 'Camp Tubman', status: 'Active', serialNumber: 'HM-992', description: 'Ergonomic chair' },
+      { id: '3', name: 'Office Printer', category: 'Electronics', purchaseDate: '2022-11-20', cost: 450, location: '14 Military ART', status: 'Maintenance', serialNumber: 'PRT-443', description: 'Needs toner' },
     ];
   });
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>(undefined);
@@ -398,6 +538,7 @@ const App = () => {
       <main className="main-content">
         {view === 'dashboard' && <Dashboard assets={assets} />}
         {view === 'inventory' && <AssetList assets={assets} onDelete={handleDelete} onEdit={handleEdit} />}
+        {view === 'reports' && <Reports assets={assets} />}
         {view === 'add' && <AssetForm onSave={handleSaveAsset} initialData={editingAsset} />}
       </main>
     </div>

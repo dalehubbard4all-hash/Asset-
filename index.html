@@ -62,6 +62,17 @@
         .stat-card { background: white; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); }
         .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
         .stat-label { font-size: 0.875rem; color: var(--text-sub); }
+
+        @media print {
+            .sidebar, .no-print, .ai-panel { display: none !important; }
+            .app-container { height: auto; display: block; }
+            .main-content { padding: 0; overflow: visible; }
+            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .card { box-shadow: none; border: none; padding: 0; margin: 0; }
+            .data-table th { border-bottom: 2px solid #000; color: #000; }
+            .data-table td { border-bottom: 1px solid #ddd; }
+            h1, h2, h3 { color: #000 !important; }
+        }
     </style>
 <script type="importmap">
 {
