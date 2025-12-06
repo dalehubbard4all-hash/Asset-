@@ -12,7 +12,7 @@ interface Asset {
   name: string;
   category: string;
   purchaseDate: string;
-  cost: number;
+  cost?: number;
   location: string;
   status: "Active" | "Maintenance" | "Retired";
   serialNumber: string;
@@ -66,7 +66,7 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
 );
 
 const Dashboard = ({ assets }: { assets: Asset[] }) => {
-  const totalValue = assets.reduce((sum, a) => sum + (a.status !== 'Retired' ? a.cost : 0), 0);
+  const totalValue = assets.reduce((sum, a) => sum + (a.status !== 'Retired' ? (a.cost || 0) : 0), 0);
   const activeCount = assets.filter(a => a.status === 'Active').length;
   const maintenanceCount = assets.filter(a => a.status === 'Maintenance').length;
 
@@ -108,6 +108,7 @@ const Dashboard = ({ assets }: { assets: Asset[] }) => {
               <div style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>{count}</div>
             </div>
           ))}
+          {Object.keys(categoryData).length === 0 && <div style={{ color: '#94a3b8' }}>No assets recorded yet.</div>}
         </div>
       </div>
     </div>
@@ -119,21 +120,34 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
     name: '',
     category: 'Electronics',
     purchaseDate: new Date().toISOString().split('T')[0],
-    cost: 0,
+    cost: undefined,
     location: 'Camp Ware',
     status: 'Active',
     serialNumber: '',
     description: '',
     ...initialData
   });
-
+  
+  const [quantity, setQuantity] = useState(1);
   const [aiPrompt, setAiPrompt] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
+  // Reset quantity when initialData changes (e.g. switching between edit/add)
+  useEffect(() => {
+    if (initialData?.id) {
+        setQuantity(1);
+    }
+  }, [initialData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'cost' ? parseFloat(value) : value }));
+    // If it's the cost field and value is empty, set to undefined, otherwise parse float
+    const newValue = name === 'cost' 
+      ? (value === '' ? undefined : parseFloat(value)) 
+      : value;
+    
+    setFormData(prev => ({ ...prev, [name]: newValue }));
   };
 
   const handleAiFill = async () => {
@@ -147,6 +161,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
         contents: `Extract asset details from the following text into a JSON object. 
         Text: "${aiPrompt}".
         If a field is missing, make a reasonable guess or leave it null.
+        Extract quantity if mentioned (default 1).
         Current date is ${new Date().toISOString().split('T')[0]}.`,
         config: {
           responseMimeType: "application/json",
@@ -160,9 +175,10 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
               location: { type: Type.STRING, enum: LOCATIONS },
               status: { type: Type.STRING, enum: STATUSES },
               serialNumber: { type: Type.STRING },
-              description: { type: Type.STRING }
+              description: { type: Type.STRING },
+              quantity: { type: Type.INTEGER }
             },
-            required: ["name", "cost"]
+            required: ["name"]
           }
         }
       });
@@ -178,6 +194,12 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
         status: extracted.status || prev.status || 'Active',
       }));
 
+      if (extracted.quantity && extracted.quantity > 0) {
+        setQuantity(extracted.quantity);
+      } else {
+        setQuantity(1);
+      }
+
     } catch (e) {
       setAiError("Failed to interpret text. Please try again or fill manually.");
       console.error(e);
@@ -188,11 +210,23 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name && formData.cost !== undefined) {
-      onSave({
-        id: initialData?.id || generateId(),
-        ...formData as Asset
-      });
+    if (formData.name) {
+      if (initialData?.id) {
+        // Edit mode - single update
+        onSave({
+          id: initialData.id,
+          ...formData as Asset
+        });
+      } else {
+        // Create mode - loop for quantity
+        const count = Math.max(1, quantity);
+        for (let i = 0; i < count; i++) {
+          onSave({
+            id: generateId(),
+            ...formData as Asset
+          });
+        }
+      }
     }
   };
 
@@ -206,7 +240,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
             ✨ AI Smart Entry
           </h3>
           <p style={{ fontSize: '0.9rem', color: '#475569' }}>
-            Describe the asset naturally (e.g., "Bought 3 Herman Miller chairs for Camp Tubman today for $1200 each").
+            Describe the asset naturally (e.g., "Bought 3 Herman Miller chairs for Camp Tubman today").
           </p>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input 
@@ -242,9 +276,25 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
             </select>
           </div>
           <div className="input-group">
-            <label>Cost ($) *</label>
-            <input required type="number" step="0.01" name="cost" className="input-control" value={formData.cost} onChange={handleChange} />
+            <label>Cost ($)</label>
+            <input type="number" step="0.01" name="cost" className="input-control" value={formData.cost === undefined ? '' : formData.cost} onChange={handleChange} />
           </div>
+          
+          <div className="input-group">
+            <label>Quantity</label>
+            <input 
+              type="number" 
+              min="1" 
+              step="1" 
+              name="quantity" 
+              className="input-control" 
+              value={quantity} 
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              disabled={!!initialData?.id} // Disable editing quantity when updating an existing asset
+              title={initialData?.id ? "Quantity cannot be changed when editing an individual asset." : "Number of identical assets to create"}
+            />
+          </div>
+
           <div className="input-group">
             <label>Purchase Date</label>
             <input type="date" name="purchaseDate" className="input-control" value={formData.purchaseDate} onChange={handleChange} />
@@ -262,7 +312,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
             </select>
           </div>
           <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-            <label>Serial Number</label>
+            <label>Serial Number {quantity > 1 ? '(Applied to all)' : ''}</label>
             <input name="serialNumber" className="input-control" value={formData.serialNumber} onChange={handleChange} />
           </div>
           <div className="input-group" style={{ gridColumn: '1 / -1' }}>
@@ -271,7 +321,9 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
           </div>
         </div>
         <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-          <button type="submit" className="btn btn-primary">Save Asset</button>
+          <button type="submit" className="btn btn-primary">
+            {initialData?.id ? 'Save Changes' : (quantity > 1 ? `Create ${quantity} Assets` : 'Save Asset')}
+          </button>
         </div>
       </form>
     </div>
@@ -299,7 +351,7 @@ const AssetList = ({ assets, onDelete, onEdit }: { assets: Asset[], onDelete: (i
     const headers = ["ID", "Name", "Category", "Cost", "Date", "Location", "Status", "Serial"];
     const csvContent = "data:text/csv;charset=utf-8," 
       + headers.join(",") + "\n"
-      + assets.map(a => `${a.id},"${a.name}",${a.category},${a.cost},${a.purchaseDate},"${a.location}",${a.status},"${a.serialNumber}"`).join("\n");
+      + assets.map(a => `${a.id},"${a.name}",${a.category},${a.cost || 0},${a.purchaseDate},"${a.location}",${a.status},"${a.serialNumber}"`).join("\n");
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -348,7 +400,7 @@ const AssetList = ({ assets, onDelete, onEdit }: { assets: Asset[], onDelete: (i
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{asset.serialNumber}</div>
                 </td>
                 <td>{asset.category}</td>
-                <td>{formatCurrency(asset.cost)}</td>
+                <td>{formatCurrency(asset.cost || 0)}</td>
                 <td>{asset.location}</td>
                 <td><span className={getStatusBadge(asset.status)}>{asset.status}</span></td>
                 <td>
@@ -373,7 +425,7 @@ const Reports = ({ assets }: { assets: Asset[] }) => {
       const locAssets = assets.filter(a => a.location === loc);
       stats[loc] = {
         count: locAssets.length,
-        value: locAssets.reduce((sum, a) => sum + (a.status !== 'Retired' ? a.cost : 0), 0)
+        value: locAssets.reduce((sum, a) => sum + (a.status !== 'Retired' ? (a.cost || 0) : 0), 0)
       };
     });
     return stats;
@@ -448,7 +500,7 @@ const Reports = ({ assets }: { assets: Asset[] }) => {
                    <td>{asset.category}</td>
                    <td>{asset.serialNumber || '-'}</td>
                    <td>{asset.status}</td>
-                   <td style={{ textAlign: 'right' }}>{formatCurrency(asset.cost)}</td>
+                   <td style={{ textAlign: 'right' }}>{formatCurrency(asset.cost || 0)}</td>
                  </tr>
                ))}
                {reportAssets.length === 0 && <tr><td colSpan={5} style={{textAlign:'center', padding:'2rem'}}>No assets found for this location.</td></tr>}
@@ -497,11 +549,7 @@ const App = () => {
   const [view, setView] = useState("dashboard");
   const [assets, setAssets] = useState<Asset[]>(() => {
     const saved = localStorage.getItem("assets");
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'MacBook Pro M2', category: 'Electronics', purchaseDate: '2023-05-15', cost: 2499, location: 'Camp Ware', status: 'Active', serialNumber: 'FVFX234', description: 'Primary dev machine' },
-      { id: '2', name: 'Herman Miller Aeron', category: 'Furniture', purchaseDate: '2023-01-10', cost: 1200, location: 'Camp Tubman', status: 'Active', serialNumber: 'HM-992', description: 'Ergonomic chair' },
-      { id: '3', name: 'Office Printer', category: 'Electronics', purchaseDate: '2022-11-20', cost: 450, location: '14 Military ART', status: 'Maintenance', serialNumber: 'PRT-443', description: 'Needs toner' },
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>(undefined);
 
