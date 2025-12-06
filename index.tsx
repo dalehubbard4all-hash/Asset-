@@ -29,7 +29,8 @@ const LOCATIONS = [
   "Camp Zwedru",
   "Camp Voinjama",
   "ACOS MOD",
-  "Camp Buchanan"
+  "Camp Buchanan",
+  "CEP Office"
 ];
 const STATUSES = ["Active", "Maintenance", "Retired"];
 
