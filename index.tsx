@@ -60,7 +60,7 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
     <div className={`nav-item ${currentView === 'add' ? 'active' : ''}`} onClick={() => setView('add')}>
       Add Asset
     </div>
-    <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: '#94a3b8' }}>
+    <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: 'var(--text-sub)' }}>
       v1.0.0 Web Edition
     </div>
   </div>
@@ -96,7 +96,7 @@ const Dashboard = ({ assets }: { assets: Asset[] }) => {
         </div>
         <div className="stat-card">
           <div className="stat-label">In Maintenance</div>
-          <div className="stat-value" style={{ color: '#d97706' }}>{maintenanceCount}</div>
+          <div className="stat-value" style={{ color: '#fbbf24' }}>{maintenanceCount}</div>
         </div>
       </div>
 
@@ -104,12 +104,12 @@ const Dashboard = ({ assets }: { assets: Asset[] }) => {
         <h3>Category Distribution</h3>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
           {Object.entries(categoryData).map(([cat, count]) => (
-            <div key={cat} style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', minWidth: '120px' }}>
+            <div key={cat} style={{ background: 'var(--bg-light)', padding: '1rem', borderRadius: '8px', minWidth: '120px', border: '1px solid var(--border)' }}>
               <div style={{ fontWeight: 600 }}>{cat}</div>
               <div style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>{count}</div>
             </div>
           ))}
-          {Object.keys(categoryData).length === 0 && <div style={{ color: '#94a3b8' }}>No assets recorded yet.</div>}
+          {Object.keys(categoryData).length === 0 && <div style={{ color: 'var(--text-sub)' }}>No assets recorded yet.</div>}
         </div>
       </div>
     </div>
@@ -237,10 +237,10 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
       
       {!initialData?.id && (
         <div className="card ai-panel">
-          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
             ✨ AI Smart Entry
           </h3>
-          <p style={{ fontSize: '0.9rem', color: '#475569' }}>
+          <p style={{ fontSize: '0.9rem', color: '#cbd5e1' }}>
             Describe the asset naturally (e.g., "Bought 3 Herman Miller chairs for Camp Tubman today").
           </p>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -251,6 +251,7 @@ const AssetForm = ({ onSave, initialData }: { onSave: (asset: Asset) => void, in
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAiFill()}
+              style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}
             />
             <button 
               className="btn btn-primary" 
@@ -398,7 +399,7 @@ const AssetList = ({ assets, onDelete, onEdit }: { assets: Asset[], onDelete: (i
               <tr key={asset.id}>
                 <td>
                   <div style={{ fontWeight: 500 }}>{asset.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{asset.serialNumber}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{asset.serialNumber}</div>
                 </td>
                 <td>{asset.category}</td>
                 <td>{formatCurrency(asset.cost || 0)}</td>
@@ -509,10 +510,10 @@ const Reports = ({ assets }: { assets: Asset[] }) => {
            </table>
 
            <div style={{ marginTop: '4rem', display: 'flex', justifyContent: 'space-between', pageBreakInside: 'avoid' }}>
-             <div style={{ borderTop: '1px solid #000', width: '40%', padding: '0.5rem' }}>
+             <div style={{ borderTop: '1px solid currentColor', width: '40%', padding: '0.5rem' }}>
                Signed (Officer in Charge)
              </div>
-             <div style={{ borderTop: '1px solid #000', width: '40%', padding: '0.5rem' }}>
+             <div style={{ borderTop: '1px solid currentColor', width: '40%', padding: '0.5rem' }}>
                Date
              </div>
            </div>
@@ -531,10 +532,10 @@ const Reports = ({ assets }: { assets: Asset[] }) => {
            const stats = locationStats[loc];
            return (
              <div key={loc} className="card nav-item" style={{ height: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onClick={() => setSelectedLocation(loc)}>
-               <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{loc}</div>
+               <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-main)' }}>{loc}</div>
                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto' }}>
                  <span style={{ color: 'var(--text-sub)' }}>{stats.count} Assets</span>
-                 <span style={{ fontWeight: '600' }}>{formatCurrency(stats.value)}</span>
+                 <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>{formatCurrency(stats.value)}</span>
                </div>
              </div>
            );
